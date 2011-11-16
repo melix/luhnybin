@@ -1,9 +1,6 @@
 /**
  * Implementation of "The Luhny Bin" coding challenge in Groovy.
  *
- * This implementation is not meant to be optimal buth rather show
- * some nice features of the Groovy language.
- *
  * @author <a href="http://twitter.com/CedricChampeau">Cedric Champeau</a>
  */
 
@@ -14,14 +11,14 @@
  */
 def checkLuhn = { digits ->
     // the inject method is a "reduce" operation
-    // we use a tuple as parameter which has as the first
-    // element a boolean telling if we are on the second element of a pair, and second parameter the current sum
-    digits.reverse().inject([false, 0]) { res, u ->
-        def (right, sum) = res
-        u = ((char) u)-48
-        sum += (right?(2 * u) % 10 + ((int) u / 5):u)
-        [!right, sum]
-    }[1] % 10 == 0
+    boolean right = false
+    digits.reverse().inject(0) { sum, u ->
+        int x = ((char) u)-48
+        sum += (right?(x*2) % 10 + (x.intdiv(5)):x)
+        right = !right
+
+        sum
+    } % 10 == 0
 }.memoizeAtMost(10)
 
 /**
@@ -30,28 +27,26 @@ def checkLuhn = { digits ->
 def filterLine = { line ->
     // shared stringbuilder instance for every potential match on a line
     def sb = new StringBuilder()
-    println line.replaceAll(/([0-9 -]+)/) { full, match ->
+    println line.replaceAll(/([0-9 -]{14,})/) { full, match ->
         char x = 'X'
         sb.length = 0
         sb << match
         def digits = match.replaceAll(/[- ]/, '')
         int len = digits.length()
+        int limit = len-14
         int offset = 0
-        boolean found
-        while (offset <= len - 14) {
-            found = false
-            for (int k = 16; k >= 14 && !found; k--) {
-                int matchOffset = offset
+        while (offset <= limit) {
+            (16..14).each { k->
                 // sublist operator
                 def test = digits[offset..<Math.min(offset + k, len)]
 
                 // a credit card number is found if contains enough digits
                 // and passes the Luhn test
                 int size = test.size()
-                found = size >= 14 && checkLuhn(test)
-                if (found) {
+                if (size >= 14 && checkLuhn(test)) {
                     // replace as many digits as found in the Luhn test
                     int rep = 0
+                    int matchOffset = offset
                     while (rep < size) {
                         char c = match.charAt(matchOffset)
                         if (c.isDigit()) {
@@ -71,6 +66,4 @@ def filterLine = { line ->
 }
 
 // main loop
-System.in.eachLine('US-ASCII') {
-    filterLine(it)
-}
+System.in.eachLine('US-ASCII', filterLine)
